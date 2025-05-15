@@ -789,38 +789,54 @@ def create_fact_and_plan_table(new_sheet, last_month_sheet, last_year_sheet):
         fact_plan_dic[item['name']] = item
         item['fact'] = 0
     # 本月fact数据从发生额及余额表中获取
+    keyword = "发生额及余额表"
     account_balance_table = find_excel_files_with_keyword(folder_path, keyword)
     account_wb = load_workbook_with_xlrd(account_balance_table)
-    account_sheet = account_wb['sheet1']    
+    account_sheet = account_wb['sheet1']
+    # Revenues from sale of goods: =SUM(E70:E72)
+    tmp_total = 0
     item = fact_plan_dic['CPL']
     item['match_rule'] = "'600104"
     item['fact'] = search_data_from(account_sheet, item['match_rule'], 2, 8)
+    tmp_total += item['fact']
+
     item = fact_plan_dic['PA6']
     item['match_rule'] = "'600103"
     item['fact'] = search_data_from(account_sheet, item['match_rule'], 2, 8)
+    tmp_total += item['fact']
+
     item = fact_plan_dic['Others']
     item['match_rule'] = "'6001" # '6001-'600103-'600104
     item['fact'] = search_data_from(account_sheet, item['match_rule'], 2, 8)
     item['fact'] = item['fact'] - fact_plan_dic['CPL']['fact'] - fact_plan_dic['PA6']['fact']
+    tmp_total += item['fact']
+
+    item = fact_plan_dic['Revenues from sale of goods']
+    item['fact'] = tmp_total
     # Expenses for the sale of goods incl: 是=SUM(E74:E79)
     tmp_total = 0
     item = fact_plan_dic['Cost of goods']
     item['match_rule'] = "'6401"
     item['fact'] = search_data_from(account_sheet, item['match_rule'], 2, 8)
     tmp_total += item['fact']
+
     item = fact_plan_dic['Sales taxes']
     item['match_rule'] = "'6403"
     item['fact'] = search_data_from(account_sheet, item['match_rule'], 2, 8)
     tmp_total += item['fact']
+
     item = fact_plan_dic['Operating costs']
     item['match_rule'] = "'6601"
     item['fact'] = search_data_from(account_sheet, item['match_rule'], 2, 8)
     tmp_total += item['fact']
+
     item = fact_plan_dic['Personnel costs']
     item['match_rule'] = "'660201" # 660201-6602010401-6602010402
     item['fact'] = search_data_from(account_sheet, item['match_rule'], 2, 8)
     item['fact'] -= search_data_from(account_sheet,"'6602010401" , 2, 8)
     item['fact'] -= search_data_from(account_sheet,"'6602010402" , 2, 8)
+    tmp_total += item['fact']
+
     pers_v = item['fact']
     item = fact_plan_dic['Other administrative expenses']
     item['match_rule'] = "'6602" # =6602-660224-660219-pers_v
@@ -829,11 +845,16 @@ def create_fact_and_plan_table(new_sheet, last_month_sheet, last_year_sheet):
     item['fact'] -= search_data_from(account_sheet, "'660219", 2, 8)
     item['fact'] -= pers_v
     tmp_total += item['fact']
+
     item = fact_plan_dic['Financial expenses']
     item['match_rule'] = "'660302" # =660302+660303
     item['fact'] = search_data_from(account_sheet, item['match_rule'], 2, 8)
     item['fact'] += search_data_from(account_sheet, "'660303", 2, 8)
     tmp_total += item['fact']
+
+    item = fact_plan_dic['Expenses for the sale of goods incl:']
+    item['fact'] = tmp_total
+
     item = fact_plan_dic['Other income']
     item['match_rule'] = "'660301" # =-660301-660304-6711-660219-660224+6301+6051
     item['fact'] = 0 - search_data_from(account_sheet, item['match_rule'], 2, 8)
@@ -843,15 +864,27 @@ def create_fact_and_plan_table(new_sheet, last_month_sheet, last_year_sheet):
     item['fact'] -= search_data_from(account_sheet, "'660224", 2, 8)
     item['fact'] += search_data_from()(account_sheet, "'6301", 2, 8)
     item['fact'] += search_data_from(account_sheet, "'6051", 2, 8)
-    tmp_total += item['fact']
-    item = fact_plan_dic['Expenses for the sale of goods incl:']
-    item['fact'] = tmp_total
+
     item = fact_plan_dic['Profit before tax']
     item['match_rule'] = "'6801"
     item['fact'] = search_data_from(account_sheet, item['match_rule'], 2, 8)
 
     for item in fact_plan_dic:
         print(item)
+    
+    start_row = 69
+    end_row = 81
+    dst_col = 5
+
+    for i, item in enumerate(fact_plan_dic.items()):
+        # 跳过公式
+        if 0 == i or 4 == i:
+            continue
+
+        new_sheet.cell(row=i+start_row, column=dst_col).value = item['fact']
+    
+    # 当前日期
+    cur_dt = datetime.strptime(new_sheet.title, date_fmt)
 
 def main():
     print(' ')
