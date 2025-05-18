@@ -7,7 +7,7 @@ import os
 import glob
 import xlwings as xw
 
-new_tonns_name = 'tonns.xlsx'
+
 # 建立名称对应关系字典
 name_dict = {}
 name_dict['polyamide-6(volgamid 25)'] = '25'
@@ -54,13 +54,17 @@ def handle_transit_table(transit_table):
     # 读取Excel文件
     df = pd.read_excel(transit_table, sheet_name='在途货物余额表', header=None, engine='openpyxl')
     # 找到并记录月份
-    global curr_month
+    global curr_month 
+    global new_tonns_name
     # 遍历A列，找到包含“日期”的行号
     for index, value in enumerate(df[0]):
         if pd.notna(value) and '日期' in value:
             tmp = df.iloc[index, 1]
-            curr_month = datetime.strptime(tmp, '%Y-%m-%d').month
+            cur_date = datetime.strptime(tmp, '%Y-%m-%d')
+            curr_month = cur_date.month
             print('month:{}'.format(curr_month))
+            new_tonns_name = f'tonns of goods {cur_date.year}-{cur_date.month}.xlsx'
+            break
 
     product_list = []
     other = {}
@@ -270,8 +274,8 @@ def handle_tonns_table(tonns_table, product_list, sale_list):
     无返回值，但会生成一个新的Excel文件'tonns.xlsx'，其中包含了更新后的吨位数量。
     """
     # 检查并删除已存在的'tonns.xlsx'文件，避免重复生成
-    if os.path.exists('tonns.xlsx'):
-        os.remove('tonns.xlsx')
+    if os.path.exists(new_tonns_name):
+        os.remove(new_tonns_name)
     
     # 读取Excel文件
     tonns = load_workbook(tonns_table)
@@ -424,7 +428,7 @@ def main():
     product_list, checked_list = handle_account_balance(account_balance_table, product_list)
     #################################################################
     # tonns
-    keyword = 'tonns of good'
+    keyword = 'tonns of good2'
     tonns_table = find_excel_files_with_keyword(folder_path, keyword)
     product_list = handle_tonns_table(tonns_table, product_list, sale_list)
     # 检查tonns

@@ -181,7 +181,23 @@ def write_date_to_product_tbl(new_sheet, last_month_sheet, last_year_sheet):
     name = name.strftime(date_fmt)
     name = convert_date_format_en(name)
     new_sheet['AA3'].value = new_sheet['AA3'].value + name
+    #  plan 和 fact
+    name = convert_date_format_en(new_sheet.title)
+    new_sheet['D67'].value = f'Plan {name}'
+    new_sheet['E67'].value = f'Fact {name}'
+    name = convert_date_format_en(last_year_sheet.title)
+    new_sheet['F67'].value = f'Fact {name}'
+    new_sheet['G67'].value = new_sheet['E67'].value + ' / ' + new_sheet['D67'].value
+    new_sheet['I67'].value = new_sheet['E67'].value + ' / ' + new_sheet['F67'].value
 
+    cur_date = datetime.strptime(new_sheet.title, date_fmt)
+    new_sheet['K67'].value = f'Plan {cur_date.month}m.{cur_date.year}'
+    new_sheet['L67'].value = f'Fact {cur_date.month}m.{cur_date.year}'
+    last_date = datetime.strptime(new_sheet.title, date_fmt)
+    new_sheet['M67'].value = f'Fact {last_date.month}m.{last_date.year}'
+
+    new_sheet['N67'].value = new_sheet['L67'].value + ' / ' + new_sheet['K67'].value
+    new_sheet['P67'].value = new_sheet['L67'].value + ' / ' + new_sheet['M67'].value
     return
 
 def copy_last_data_to_new(new_sheet, last_month_sheet, last_year_sheet):
@@ -301,20 +317,22 @@ def copy_last_data_to_new(new_sheet, last_month_sheet, last_year_sheet):
     # 上年同期实际发生
     start_row = 69
     end_row = 81
+    # 同期fact
     start_col = 5
+    # 合计fact
+    start_total_col = 11
     for row in range(start_row, end_row + 1):
          # 获取源单元格
         source_cell = last_year_sheet.cell(row=row, column=start_col)
         # 获取目标单元格
         target_cell = new_sheet.cell(row=row, column=start_col+1, value=source_cell.value)
         target_cell.fill = copy(source_cell.fill)
-    # 上年同期合计实际发生
-    start_col = 11
-    for row in range(start_row, end_row + 1):
-         # 获取源单元格
-        source_cell = last_year_sheet.cell(row=row, column=start_col)
+
+        # 上年同期合计实际发生
+        # 获取源单元格
+        source_cell = last_year_sheet.cell(row=row, column=start_total_col)
         # 获取目标单元格
-        target_cell = new_sheet.cell(row=row, column=start_col+2, value=source_cell.value)
+        target_cell = new_sheet.cell(row=row, column=start_total_col+2, value=source_cell.value)
         target_cell.fill = copy(source_cell.fill)
 
 def copy_tonns_data_to_report(tonns_path, new_sheet):
@@ -740,7 +758,6 @@ def create_top_5_supplier_table(new_sheet, last_month_sheet, last_year_sheet, su
     for col in range(2, account_sheet.max_column + 1):
         if '期末余额金额' in account_sheet.cell(row=1, column=col).value:
             end_banlance_col = col
-            print(f'end_banlance_col:{end_banlance_col}')
     
     assert end_banlance_col != 0, '没有找到期末余额金额列'
 
@@ -749,7 +766,6 @@ def create_top_5_supplier_table(new_sheet, last_month_sheet, last_year_sheet, su
         if '220203' in tmp_code or '220204' in tmp_code:
             # 获取应付暂估值
             func_curr_balan = account_sheet.cell(row=row, column=end_banlance_col).value
-            print(f'tmp_code:{tmp_code}:func_curr_balan:{func_curr_balan}')
             
             if func_curr_balan is None or func_curr_balan < 0:
                 continue
@@ -773,12 +789,16 @@ def search_data_from(sheet, expect_name, match_col, data_col):
 
         if name is not None and name == expect_name:
             result = sheet.cell(row=row, column=data_col).value
-            return result
-    
+
+            if result is not None and (type(result) == float or type(result) == int):
+                return result
+            else:
+                return 0
+            
     return result
 def create_fact_and_plan_table(new_sheet, last_month_sheet, last_year_sheet):
     fact_plan_dic = {}
-    start_row = 70
+    start_row = 69
     end_row = 81
     # 创建fact_plan_dic
     for row in range(start_row, end_row + 1):
@@ -788,6 +808,7 @@ def create_fact_and_plan_table(new_sheet, last_month_sheet, last_year_sheet):
         item['match_rule'] = ''#记录匹配规则，仅记录作用
         fact_plan_dic[item['name']] = item
         item['fact'] = 0
+
     # 本月fact数据从发生额及余额表中获取
     keyword = "发生额及余额表"
     account_balance_table = find_excel_files_with_keyword(folder_path, keyword)
@@ -796,17 +817,17 @@ def create_fact_and_plan_table(new_sheet, last_month_sheet, last_year_sheet):
     # Revenues from sale of goods: =SUM(E70:E72)
     tmp_total = 0
     item = fact_plan_dic['CPL']
-    item['match_rule'] = "'600104"
+    item['match_rule'] = "600104"
     item['fact'] = search_data_from(account_sheet, item['match_rule'], 2, 8)
     tmp_total += item['fact']
 
     item = fact_plan_dic['PA6']
-    item['match_rule'] = "'600103"
+    item['match_rule'] = "600103"
     item['fact'] = search_data_from(account_sheet, item['match_rule'], 2, 8)
     tmp_total += item['fact']
 
     item = fact_plan_dic['Others']
-    item['match_rule'] = "'6001" # '6001-'600103-'600104
+    item['match_rule'] = "6001" # '6001-'600103-'600104
     item['fact'] = search_data_from(account_sheet, item['match_rule'], 2, 8)
     item['fact'] = item['fact'] - fact_plan_dic['CPL']['fact'] - fact_plan_dic['PA6']['fact']
     tmp_total += item['fact']
@@ -816,75 +837,84 @@ def create_fact_and_plan_table(new_sheet, last_month_sheet, last_year_sheet):
     # Expenses for the sale of goods incl: 是=SUM(E74:E79)
     tmp_total = 0
     item = fact_plan_dic['Cost of goods']
-    item['match_rule'] = "'6401"
+    item['match_rule'] = "6401"
     item['fact'] = search_data_from(account_sheet, item['match_rule'], 2, 8)
     tmp_total += item['fact']
 
     item = fact_plan_dic['Sales taxes']
-    item['match_rule'] = "'6403"
+    item['match_rule'] = "6403"
     item['fact'] = search_data_from(account_sheet, item['match_rule'], 2, 8)
     tmp_total += item['fact']
 
     item = fact_plan_dic['Operating costs']
-    item['match_rule'] = "'6601"
+    item['match_rule'] = "6601"
     item['fact'] = search_data_from(account_sheet, item['match_rule'], 2, 8)
     tmp_total += item['fact']
 
     item = fact_plan_dic['Personnel costs']
-    item['match_rule'] = "'660201" # 660201-6602010401-6602010402
+    item['match_rule'] = "660201" # 660201-6602010401-6602010402-6602011004
     item['fact'] = search_data_from(account_sheet, item['match_rule'], 2, 8)
-    item['fact'] -= search_data_from(account_sheet,"'6602010401" , 2, 8)
-    item['fact'] -= search_data_from(account_sheet,"'6602010402" , 2, 8)
+    item['fact'] -= search_data_from(account_sheet,"6602010401" , 2, 8)
+    item['fact'] -= search_data_from(account_sheet,"6602010402" , 2, 8)
+    item['fact'] -= search_data_from(account_sheet,"6602011004" , 2, 8)
     tmp_total += item['fact']
 
     pers_v = item['fact']
     item = fact_plan_dic['Other administrative expenses']
-    item['match_rule'] = "'6602" # =6602-660224-660219-pers_v
+    item['match_rule'] = "6602" # =6602-660224-660219-660205-pers_v
     item['fact'] = search_data_from(account_sheet, item['match_rule'], 2, 8)
-    item['fact'] -= search_data_from(account_sheet, "'660224", 2, 8)
-    item['fact'] -= search_data_from(account_sheet, "'660219", 2, 8)
+    item['fact'] -= search_data_from(account_sheet, "660224", 2, 8)
+    item['fact'] -= search_data_from(account_sheet, "660219", 2, 8)
+    item['fact'] -= search_data_from(account_sheet, "660205", 2, 8)
     item['fact'] -= pers_v
     tmp_total += item['fact']
 
     item = fact_plan_dic['Financial expenses']
-    item['match_rule'] = "'660302" # =660302+660303
+    item['match_rule'] = "660302" # =660302+660303
     item['fact'] = search_data_from(account_sheet, item['match_rule'], 2, 8)
-    item['fact'] += search_data_from(account_sheet, "'660303", 2, 8)
+    item['fact'] += search_data_from(account_sheet, "660303", 2, 8)
     tmp_total += item['fact']
 
     item = fact_plan_dic['Expenses for the sale of goods incl:']
     item['fact'] = tmp_total
 
     item = fact_plan_dic['Other income']
-    item['match_rule'] = "'660301" # =-660301-660304-6711-660219-660224+6301+6051
+    item['match_rule'] = "660301" # =-660301-660304-6711-660219-660224-660205-+6301+6051
     item['fact'] = 0 - search_data_from(account_sheet, item['match_rule'], 2, 8)
-    item['fact'] -= search_data_from(account_sheet, "'660304", 2, 8)
-    item['fact'] -= search_data_from(account_sheet, "'6711", 2, 8)
-    item['fact'] -= search_data_from(account_sheet, "'660219", 2, 8)
-    item['fact'] -= search_data_from(account_sheet, "'660224", 2, 8)
-    item['fact'] += search_data_from()(account_sheet, "'6301", 2, 8)
-    item['fact'] += search_data_from(account_sheet, "'6051", 2, 8)
+    item['fact'] -= search_data_from(account_sheet, "660304", 2, 8)
+    item['fact'] -= search_data_from(account_sheet, "6711", 2, 8)
+    item['fact'] -= search_data_from(account_sheet, "660219", 2, 8)
+    item['fact'] -= search_data_from(account_sheet, "660224", 2, 8)
+    item['fact'] -= search_data_from(account_sheet, "660205", 2, 8)
+    item['fact'] += search_data_from(account_sheet, "6301", 2, 8)
+    item['fact'] += search_data_from(account_sheet, "6051", 2, 8)
 
     item = fact_plan_dic['Profit before tax']
-    item['match_rule'] = "'6801"
+    item['match_rule'] = "6801"
     item['fact'] = search_data_from(account_sheet, item['match_rule'], 2, 8)
 
-    for item in fact_plan_dic:
-        print(item)
     
     start_row = 69
     end_row = 81
     dst_col = 5
-
-    for i, item in enumerate(fact_plan_dic.items()):
-        # 跳过公式
-        if 0 == i or 4 == i:
-            continue
-
-        new_sheet.cell(row=i+start_row, column=dst_col).value = item['fact']
-    
-    # 当前日期
     cur_dt = datetime.strptime(new_sheet.title, date_fmt)
+    i = 0
+
+    for key, value in fact_plan_dic.items():
+        # 跳过公式
+        if 0 != i and 4 != i:
+            new_sheet.cell(row=i+start_row, column=dst_col).value = value['fact']
+            # 当前日期
+            last_month_plan = 0
+            last_month_fact = 0
+            # 上月数据
+            if cur_dt.month != 1:
+                last_month_plan = last_month_sheet.cell(row=i+start_row, column=11).value
+                last_month_fact = last_month_sheet.cell(row=i+start_row, column=12).value
+
+            new_sheet.cell(row=i+start_row, column=11).value = value['plan'] + last_month_plan
+            new_sheet.cell(row=i+start_row, column=12).value = value['fact'] + last_month_fact
+        i += 1
 
 def main():
     print(' ')
@@ -901,7 +931,8 @@ def main():
     # 复制上月和上年数据
     copy_last_data_to_new(new_sheet, last_month_sheet, last_year_sheet)
     # 复制tonns数据
-    copy_tonns_data_to_report('tonns.xlsx', new_sheet)
+    tonns_path = find_excel_files_with_keyword(folder_path, "tonns of goods")
+    copy_tonns_data_to_report(tonns_path, new_sheet)
     # 复制在途货物余额表
     keyword = "在途货物余额表"
     transit_path = find_excel_files_with_keyword(folder_path, keyword)
@@ -921,6 +952,8 @@ def main():
     supplier_sheet = customer_supply['供应商']
     # 读取供应商信息表
     create_top_5_supplier_table(new_sheet, last_month_sheet, last_year_sheet, supplier_path, supplier_sheet)
+    # 生成fact and plan数据
+    create_fact_and_plan_table(new_sheet, last_month_sheet, last_year_sheet)
     # 保存到新的excel文件
     file_name = 'new monthly report{}.xlsx'.format(new_sheet.title)
     if os.path.exists(file_name):  # 如果文件存在
