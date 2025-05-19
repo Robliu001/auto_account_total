@@ -273,10 +273,6 @@ def handle_tonns_table(tonns_table, product_list, sale_list):
     返回:
     无返回值，但会生成一个新的Excel文件'tonns.xlsx'，其中包含了更新后的吨位数量。
     """
-    # 检查并删除已存在的'tonns.xlsx'文件，避免重复生成
-    if os.path.exists(new_tonns_name):
-        os.remove(new_tonns_name)
-    
     # 读取Excel文件
     tonns = load_workbook(tonns_table)
     # 选择名为'amount'的工作表进行操作
@@ -328,6 +324,9 @@ def handle_tonns_table(tonns_table, product_list, sale_list):
                 cell = quantity.cell(row, 3+curr_month)
                 cell.value = item['quantity']  
 
+    # 检查并删除已存在的new_tonns_name文件，避免重复生成
+    if os.path.exists(new_tonns_name):
+        os.remove(new_tonns_name)
     # 保存更新后的Excel文件
     tonns.save(new_tonns_name)
 def check_tonns_table(checked_list):
