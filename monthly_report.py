@@ -478,8 +478,11 @@ def copy_transit_data_to_report(transit_path, new_sheet):
 
         for item in product_list:
             if name == item['name']:
+                tmp_amount = item['amount']
+                if name == "CPL" or name == "Yarn":
+                    tmp_amount = tmp_amount / new_sheet.cell(row=2, column=2).value                
                 mt_cell = new_sheet.cell(row=row, column=col_in, value=item['quantity'])
-                qian_cell = new_sheet.cell(row=row+1, column=col_in, value=item['amount'])
+                qian_cell = new_sheet.cell(row=row+1, column=col_in, value=tmp_amount)
                 break
 
 def create_current_total_delivery(new_sheet, last_month_sheet):
@@ -931,7 +934,7 @@ def main():
     # 复制上月和上年数据
     copy_last_data_to_new(new_sheet, last_month_sheet, last_year_sheet)
     # 复制tonns数据
-    tonns_path = find_excel_files_with_keyword(folder_path, "tonns of goods")
+    tonns_path = find_excel_files_with_keyword(folder_path, "tonns of good20*-")
     copy_tonns_data_to_report(tonns_path, new_sheet)
     # 复制在途货物余额表
     keyword = "在途货物余额表"

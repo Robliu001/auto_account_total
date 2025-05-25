@@ -63,7 +63,7 @@ def handle_transit_table(transit_table):
             cur_date = datetime.strptime(tmp, '%Y-%m-%d')
             curr_month = cur_date.month
             print('month:{}'.format(curr_month))
-            new_tonns_name = f'tonns of goods {cur_date.year}-{cur_date.month}.xlsx'
+            new_tonns_name = f'tonns of good{cur_date.year}-{cur_date.month}.xlsx'
             break
 
     product_list = []
