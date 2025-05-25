@@ -193,7 +193,7 @@ def write_date_to_product_tbl(new_sheet, last_month_sheet, last_year_sheet):
     cur_date = datetime.strptime(new_sheet.title, date_fmt)
     new_sheet['K67'].value = f'Plan {cur_date.month}m.{cur_date.year}'
     new_sheet['L67'].value = f'Fact {cur_date.month}m.{cur_date.year}'
-    last_date = datetime.strptime(new_sheet.title, date_fmt)
+    last_date = datetime.strptime(last_year_sheet.title, date_fmt)
     new_sheet['M67'].value = f'Fact {last_date.month}m.{last_date.year}'
 
     new_sheet['N67'].value = new_sheet['L67'].value + ' / ' + new_sheet['K67'].value
@@ -320,7 +320,7 @@ def copy_last_data_to_new(new_sheet, last_month_sheet, last_year_sheet):
     # 同期fact
     start_col = 5
     # 合计fact
-    start_total_col = 11
+    start_total_col = 12
     for row in range(start_row, end_row + 1):
          # 获取源单元格
         source_cell = last_year_sheet.cell(row=row, column=start_col)
@@ -332,7 +332,7 @@ def copy_last_data_to_new(new_sheet, last_month_sheet, last_year_sheet):
         # 获取源单元格
         source_cell = last_year_sheet.cell(row=row, column=start_total_col)
         # 获取目标单元格
-        target_cell = new_sheet.cell(row=row, column=start_total_col+2, value=source_cell.value)
+        target_cell = new_sheet.cell(row=row, column=start_total_col+1, value=source_cell.value)
         target_cell.fill = copy(source_cell.fill)
 
 def copy_tonns_data_to_report(tonns_path, new_sheet):
@@ -590,18 +590,19 @@ def create_top_10_customer_table(new_sheet, last_month_sheet, last_year_sheet, r
             # 如果到期日期在三个月之前，则将func_curr_balan累加到'Other customers'
             if isinstance(due_date, str):
                 due_date = datetime.strptime(due_date, '%Y-%m-%d')
-            if due_date < three_months_ago:
-                customer_code = detail_sheet.cell(row=row, column=1).value
-                find_r = False
-                yuee = detail_sheet.cell(row=row, column=18).value / 1000
-                for item in customer_dict:
-                    if customer_code == item['code']:
-                        item['3month'] += yuee
-                        find_r = True
-                        break
-                # 如果没有找到对应的客户，则将yuee累加到'Other customers'
-                if not find_r:
-                    other_dict['3month'] += yuee
+
+                if due_date < three_months_ago:
+                    customer_code = detail_sheet.cell(row=row, column=1).value
+                    find_r = False
+                    yuee = detail_sheet.cell(row=row, column=18).value / 1000
+                    for item in customer_dict:
+                        if customer_code == item['code']:
+                            item['3month'] += yuee
+                            find_r = True
+                            break
+                    # 如果没有找到对应的客户，则将yuee累加到'Other customers'
+                    if not find_r:
+                        other_dict['3month'] += yuee
 
     # 打印结果（可选）
     # for item in customer_dict:
@@ -636,7 +637,8 @@ def create_top_10_customer_table(new_sheet, last_month_sheet, last_year_sheet, r
             last_year_dict.append(tmp_item)
     # 向new_sheet写入本月top 10客户数据
     for i, item in enumerate(customer_dict):
-        if 10 == i:
+        if item['simple_name'] == 'Other customers':
+            # 如果是第10个客户或者是'Other customers'，则跳出循环
             break
         new_sheet.cell(row=i+start_row, column=2).value = f"{str(i + 1)}.{item['simple_name']}"
         new_sheet.cell(row=i+start_row, column=3).value = item['func_curr_balan']
@@ -737,18 +739,19 @@ def create_top_5_supplier_table(new_sheet, last_month_sheet, last_year_sheet, su
             # 如果到期日期在三个月之前，则将func_curr_balan累加到'Other customers'
             if isinstance(due_date, str):
                 due_date = datetime.strptime(due_date, '%Y-%m-%d')
-            if due_date < three_months_ago:
-                customer_code = detail_sheet.cell(row=row, column=1).value
-                find_r = False
-                yuee = detail_sheet.cell(row=row, column=18).value / 1000
-                for item in supplier_dict:
-                    if customer_code == item['code']:
-                        item['3month'] += yuee
-                        find_r = True
-                        break
-                # 如果没有找到对应的客户，则将yuee累加到'Other customers'
-                if not find_r:
-                    other_dict['3month'] += yuee
+
+                if due_date <= three_months_ago:
+                    customer_code = detail_sheet.cell(row=row, column=1).value
+                    find_r = False
+                    yuee = detail_sheet.cell(row=row, column=17).value / 1000
+                    for item in supplier_dict:
+                        if customer_code == item['code']:
+                            item['3month'] += yuee
+                            find_r = True
+                            break
+                    # 如果没有找到对应的客户，则将yuee累加到'Other customers'
+                    if not find_r:
+                        other_dict['3month'] += yuee
     
     supplier_dict.append(other_dict)
     # 发生额及余额表的应付暂估 220203和220204
@@ -892,9 +895,16 @@ def create_fact_and_plan_table(new_sheet, last_month_sheet, last_year_sheet):
     item['fact'] += search_data_from(account_sheet, "6301", 2, 8)
     item['fact'] += search_data_from(account_sheet, "6051", 2, 8)
 
+    # Profit before tax = Revenues from sale of goods - Expenses for the sale of goods incl: + Other income
+    tmp_total = 0
+    item = fact_plan_dic['Revenues from sale of goods']
+    tmp_total = item['fact']
+    item = fact_plan_dic['Expenses for the sale of goods incl:']
+    tmp_total -= item['fact']
+    item = fact_plan_dic['Other income']
+    tmp_total += item['fact']
     item = fact_plan_dic['Profit before tax']
-    item['match_rule'] = "6801"
-    item['fact'] = search_data_from(account_sheet, item['match_rule'], 2, 8)
+    item['fact'] = tmp_total
 
     
     start_row = 69
