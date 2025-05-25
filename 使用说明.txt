@@ -1,0 +1,12 @@
+1. monthly report 涉及公式修改时，修改example.xlsx
+2. 需要excel的名称（XXX代表任意字符）：
+    tonns of good2XXXX（仅作为模板）
+	new monthly report2025 （仅作为模板）
+    出库汇总表XXX 
+    发生额及余额表XXX 
+    应付账款账龄分析 
+    应收账款账龄分析 
+    在途货物余额表XXX 
+    供应商和客户名字
+3. tonns根据出库汇总表判断日期，然后根据日期填到表格中对应的列
+5. monthly_report 要从1月开始生成，因为必须使用模板才能生成
