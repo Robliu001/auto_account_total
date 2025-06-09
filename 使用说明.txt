@@ -1,4 +1,5 @@
 1. monthly report 涉及公式修改/格式修改时，修改example.xlsx
+注意：monthly_report使用前需要先将example.xlsx 中 当月plan列值写上
 
 
 2. 需要excel的名称（XXX代表任意字符）：
