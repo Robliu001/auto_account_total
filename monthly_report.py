@@ -57,6 +57,8 @@ def load_workbook_with_xlrd(path):
     if path.endswith('.xls') or path.endswith('.XLS'):
         workbook = xlrd.open_workbook(path)
         workbook_xlsx = openpyxl.Workbook()
+        # 删除默认创建的工作表
+        workbook_xlsx.remove(workbook_xlsx.active)
         for sheet_name in workbook.sheet_names():
             sheet = workbook.sheet_by_name(sheet_name)
             ws = workbook_xlsx.create_sheet(title=sheet_name)
@@ -430,7 +432,7 @@ def copy_tonns_data_to_report(tonns_path, new_sheet):
                 
 def copy_transit_data_to_report(transit_path, new_sheet):
     # 读取Excel文件
-    transit = pd.read_excel(transit_path, sheet_name='在途货物余额表', header=None, engine='openpyxl')
+    transit = pd.read_excel(transit_path, sheet_name=0, header=None, engine='openpyxl')
     product_list = []
     other = {}
     other['name'] = 'Other'
@@ -758,7 +760,7 @@ def create_top_5_supplier_table(new_sheet, last_month_sheet, last_year_sheet, su
     keyword = "发生额及余额表"
     account_balance_table = find_excel_files_with_keyword(folder_path, keyword)
     account_wb = load_workbook_with_xlrd(account_balance_table)
-    account_sheet = account_wb['sheet1']
+    account_sheet = account_wb.worksheets[0]  # 获取第一个sheet
     # 遍历account_sheet，获取应付暂估值
     end_banlance_col = 0
     for col in range(2, account_sheet.max_column + 1):
@@ -819,7 +821,7 @@ def create_fact_and_plan_table(new_sheet, last_month_sheet, last_year_sheet):
     keyword = "发生额及余额表"
     account_balance_table = find_excel_files_with_keyword(folder_path, keyword)
     account_wb = load_workbook_with_xlrd(account_balance_table)
-    account_sheet = account_wb['sheet1']
+    account_sheet = account_wb.worksheets[0]  # 获取第一个sheet
     # Revenues from sale of goods: =SUM(E70:E72)
     tmp_total = 0
     item = fact_plan_dic['CPL']
@@ -924,7 +926,7 @@ def create_fact_and_plan_table(new_sheet, last_month_sheet, last_year_sheet):
             if cur_dt.month != 1:
                 last_month_plan = last_month_sheet.cell(row=i+start_row, column=11).value
                 last_month_fact = last_month_sheet.cell(row=i+start_row, column=12).value
-
+            print(f"i:{i+start_row}, key:{key}, fact:{value['fact']}, plan:{value['plan']}, last_month_plan:{last_month_plan}, last_month_fact:{last_month_fact}")
             new_sheet.cell(row=i+start_row, column=11).value = value['plan'] + last_month_plan
             new_sheet.cell(row=i+start_row, column=12).value = value['fact'] + last_month_fact
         i += 1
@@ -953,14 +955,14 @@ def main():
     # 生成total delivery数据
     create_current_total_delivery(new_sheet, last_month_sheet)
     # 生成top 10 customer数据
-    keyword = "应收账款"
+    keyword = "应收"
     receiveable_path = find_excel_files_with_keyword(folder_path, keyword)
     customer_supply = load_workbook('供应商和客户名字.xlsx')
     customer_sheet = customer_supply['客户']
     # 读取客户信息表
     create_top_10_customer_table(new_sheet, last_month_sheet, last_year_sheet, receiveable_path, customer_sheet)
     # 生成top 5 supplier数据
-    keyword = "应付账款"
+    keyword = "应付"
     supplier_path = find_excel_files_with_keyword(folder_path, keyword)
     supplier_sheet = customer_supply['供应商']
     # 读取供应商信息表

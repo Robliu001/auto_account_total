@@ -6,7 +6,7 @@ from datetime import datetime
 import os
 import glob
 import xlwings as xw
-
+import zipfile
 
 # 建立名称对应关系字典
 name_dict = {}
@@ -37,6 +37,13 @@ name_dict['其他非主营'] = 'others '
 # name_dict['Polyamide-6 Recycled'] = 'NYLON 6 Dipped NTCF'
 # name_dict['Polyamide-6 Recycled'] = 'PA66TNC103'
 
+
+def is_valid_xlsx(file_path):
+    try:
+        with zipfile.ZipFile(file_path) as z:
+            return '[Content_Types].xml' in z.namelist()
+    except zipfile.BadZipFile:
+        return False
 def find_excel_files_with_keyword(folder_path, keyword):
     # 构建搜索路径，匹配所有 Excel 文件（支持 .xlsx 和 .xls）
     search_pattern = os.path.join(folder_path, f"{keyword}*.xls*")
@@ -51,19 +58,37 @@ def handle_transit_table(transit_table):
     该函数读取一个Excel文件，遍历表格中的数据，寻找和提取特定产品的信息，
     包括产品名称、数量、价格等，并将这些信息存储在一个全局列表product_list中。
     """
-    # 读取Excel文件
-    df = pd.read_excel(transit_table, sheet_name='在途货物余额表', header=None, engine='openpyxl')
+    try:
+        # 如果是 .xls 文件，先转成 .xlsx
+        if transit_table.endswith(".xls") and not transit_table.endswith(".xlsx"):
+            df_html = pd.read_html(transit_table)[0]
+            old_file = transit_table
+            transit_table = transit_table[:-4] + ".xlsx"
+            df_html.to_excel(transit_table, index=False)
+            # 删除原来的 .xls 文件
+            os.remove(old_file)
+
+        # 正常读取 Excel 文件
+        if is_valid_xlsx(transit_table):
+            df = pd.read_excel(transit_table, sheet_name=0, header=None, engine='openpyxl')
+        else:
+            df = pd.read_excel(transit_table, sheet_name=0, header=None, engine='xlrd')
+
+    except Exception as e:
+        print("无法处理该文件:", e)
+        raise
+
     # 找到并记录月份
     global curr_month 
     global new_tonns_name
     # 遍历A列，找到包含“日期”的行号
     for index, value in enumerate(df[0]):
-        if pd.notna(value) and '日期' in value:
+        if pd.notna(value) and '日期' in str(value):
             tmp = df.iloc[index, 1]
             cur_date = datetime.strptime(tmp, '%Y-%m-%d')
             curr_month = cur_date.month
             print('month:{}'.format(curr_month))
-            new_tonns_name = f'tonns of good{cur_date.year}-{cur_date.month}.xlsx'
+            new_tonns_name = f'tonns of good{cur_date.year}.xlsx'
             break
 
     product_list = []
@@ -112,7 +137,11 @@ def handle_transit_table(transit_table):
     return product_list
 def handle_outbound_summary(outbound_table):
     # 读取出库汇总表
-    df = pd.read_excel(outbound_table, sheet_name='sheet1',header=None)
+    if is_valid_xlsx(outbound_table):
+        df = pd.read_excel(outbound_table, sheet_name=0, header=None, engine='openpyxl')
+    else:
+        df = pd.read_excel(outbound_table, sheet_name=0, header=None, engine='xlrd')    
+
     sale_list = []
     pattern = r'volgamid (\w+)\)'
     other = {}
@@ -329,6 +358,7 @@ def handle_tonns_table(tonns_table, product_list, sale_list):
         os.remove(new_tonns_name)
     # 保存更新后的Excel文件
     tonns.save(new_tonns_name)
+    
 def check_tonns_table(checked_list):
     """
     检查吨位表格函数
