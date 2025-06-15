@@ -41,7 +41,9 @@ name_dict['其他非主营'] = 'others '
 def is_valid_xlsx(file_path):
     try:
         with zipfile.ZipFile(file_path) as z:
-            return '[Content_Types].xml' in z.namelist()
+            required_files = ['[Content_Types].xml', 'xl/workbook.xml']
+            zip_files = z.namelist()
+            return all(req_file in zip_files for req_file in required_files)
     except zipfile.BadZipFile:
         return False
 def find_excel_files_with_keyword(folder_path, keyword):

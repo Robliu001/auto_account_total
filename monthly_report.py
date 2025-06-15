@@ -496,12 +496,48 @@ def create_current_total_delivery(new_sheet, last_month_sheet):
     start_row, end_row = 7, 32
     col_de = 24 # X列, openpyxl, A列序号是1
     col_ct = 6 # F列
+    mt_total = 0
+    rmb_total = 0
+    mt_f_list = [7, 9, 11, 13, 15, 17, 22, 24, 26, 28]
+    rbm_f_list = [8, 10, 12, 14, 16, 18, 21, 27, 29]
+    us_20 = 0
+    us_31 = 0
 
     for row in range(start_row, end_row + 1):
+
         if current_date.month != 1:
-            delivery.cell(row=row, column=col_de).value = last_month_sheet.cell(row=row, column=col_de).value + delivery.cell(row=row, column=col_ct).value
+            if row == 19 or row == 30:
+                cur_v = mt_total
+            elif row == 21 or row == 32:
+                cur_v = rmb_total
+                if row == 21:
+                    us_20 = rmb_total / delivery.cell(row=2, column=2).value
+                elif row == 32:
+                    us_31 = rmb_total / delivery.cell(row=2, column=2).value
+            elif row == 20 or row == 31:
+                continue
+            else:
+                
+                cur_v = delivery.cell(row=row, column=col_ct).value
+
+                if cur_v is None or type(cur_v) is not float:
+                    continue
+                if row in mt_f_list:
+                    mt_total += cur_v
+                elif row in rbm_f_list:
+                    rmb_total += cur_v
+                elif row == 23 or row == 25:
+                    rmb_total += cur_v * delivery.cell(row=2, column=2).value
+            
+            last_v =  last_month_sheet.cell(row=row, column=col_de).value
+            delivery.cell(row=row, column=col_de).value = last_v + cur_v
         else:
-            delivery.cell(row=row, column=col_de).value = delivery.cell(row=row, column=col_ct).value
+            delivery.cell(row=row, column=col_de).value = cur_v
+    
+    if current_date.month != 1:
+        # 填充合计行
+        delivery.cell(row=20, column=col_de).value = us_20 + last_month_sheet.cell(row=20, column=col_de).value
+        delivery.cell(row=31, column=col_de).value = us_31 + last_month_sheet.cell(row=31, column=col_de).value
 
 def create_top_10_customer_table(new_sheet, last_month_sheet, last_year_sheet, receivable_path, customer_sheet):
     customer_dict = []
@@ -926,7 +962,7 @@ def create_fact_and_plan_table(new_sheet, last_month_sheet, last_year_sheet):
             if cur_dt.month != 1:
                 last_month_plan = last_month_sheet.cell(row=i+start_row, column=11).value
                 last_month_fact = last_month_sheet.cell(row=i+start_row, column=12).value
-            print(f"i:{i+start_row}, key:{key}, fact:{value['fact']}, plan:{value['plan']}, last_month_plan:{last_month_plan}, last_month_fact:{last_month_fact}")
+            # print(f"i:{i+start_row}, key:{key}, fact:{value['fact']}, plan:{value['plan']}, last_month_plan:{last_month_plan}, last_month_fact:{last_month_fact}")
             new_sheet.cell(row=i+start_row, column=11).value = value['plan'] + last_month_plan
             new_sheet.cell(row=i+start_row, column=12).value = value['fact'] + last_month_fact
         i += 1
@@ -934,19 +970,19 @@ def create_fact_and_plan_table(new_sheet, last_month_sheet, last_year_sheet):
 def main():
     print(' ')
     print('#'*20 + '开始生成report table' + '#'*20)
-    # 出库汇总表
     keyword = "new monthly report"
     monthly_path = find_excel_files_with_keyword(folder_path, keyword)
     # 将公式变为数值保存
     save_excel_file_for_value(monthly_path)
     # 复制模板，添加新sheet到report,返回excel，新日期sheet，相对新日期的上个月sheet，上一年sheet
     monthly_wb, new_sheet, last_month_sheet, last_year_sheet = copy_example_sheet_add_to_monthly(monthly_path, 'example.xlsx')
+    # 出库汇总表
     # 完成product表头
     write_date_to_product_tbl(new_sheet, last_month_sheet, last_year_sheet)
     # 复制上月和上年数据
     copy_last_data_to_new(new_sheet, last_month_sheet, last_year_sheet)
     # 复制tonns数据
-    tonns_path = find_excel_files_with_keyword(folder_path, "tonns of good20*-")
+    tonns_path = find_excel_files_with_keyword(folder_path, "tonns of good*")
     copy_tonns_data_to_report(tonns_path, new_sheet)
     # 复制在途货物余额表
     keyword = "在途货物余额表"
